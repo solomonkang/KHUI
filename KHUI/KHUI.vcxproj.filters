@@ -24,6 +24,12 @@
     <ClInclude Include="targetver.h">
       <Filter>標頭檔</Filter>
     </ClInclude>
+    <ClInclude Include="utilitylist.h">
+      <Filter>標頭檔</Filter>
+    </ClInclude>
+    <ClInclude Include="element.h">
+      <Filter>標頭檔</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
