@@ -123,6 +123,7 @@ void Scan_First(){
 			}
 		}
     }
+
 	fin.close();
 	sort(OneItem_TWU.begin(), OneItem_TWU.end(), Sort_Pairs());
 	for(vector<ItemToValue>::iterator it=OneItem_TWU.begin();it!=OneItem_TWU.end();it++){
@@ -132,6 +133,12 @@ void Scan_First(){
 			A_Items.insert(it->first);
 			OneItem_ULs.push_back(TempList);
 		}
+	}
+
+	
+	
+	for(ULs::iterator ut=OneItem_ULs.begin();ut!=OneItem_ULs.end();ut++){
+		cout<<*ut->Itemset.begin()<<"\t";
 	}
 	cout<<min_value;
 }
@@ -178,12 +185,6 @@ void Scan_Second(){
 			E.ru=TU;
 			ULs::iterator ut=find_if(OneItem_ULs.begin(),OneItem_ULs.end(),Find_Itemset(I));
 			ut->Add_Element(E);
-		}
-		for(vector<int>::iterator pt=R_Items.begin();pt!=R_Items.end();pt++){
-			for(vector<int>::iterator kt=pt+1;kt!=R_Items.end();kt++){
-				TwoItem_TWU[make_pair(*pt,*kt)]+=tu;
-				TwoItem_IU[make_pair(*pt,*kt)]+=(R_Utilities[pt-R_Items.begin()]+R_Utilities[kt-R_Items.begin()]);
-			}
 		}
 		tid++;
     }
