@@ -4,25 +4,31 @@
 #include <map>
 using namespace std;
 
-class UtilityList
-{
+class Element{
+	public:
+		int tid;
+		int iu;
+		int ru;
+};
+
+
+class UL {
     public:
-        vector<int> itemset;
-        int SumIU;
-        int SumRU;
-		map<int, pair<int, int> > elements;
-		UtilityList() : SumIU(0), SumRU(0)
-        {
+        vector<int> Itemset;
+        int Sum_IU;
+        int Sum_RU;
+		vector<Element> elements;
+		UL() : Sum_IU(0), Sum_RU(0){
         }
-        void addItem(int item)
+        void Add_Item(int item)
 		{
-			this->itemset.push_back(item);
+			this->Itemset.push_back(item);
 		}
         
-        void addElement(pair<int ,pair<int, int>> element)
+        void Add_Element(Element element)
         {
-            SumIU += element.second.first;
-            SumRU += element.second.second;
-            elements.insert(element);
+			Sum_IU += element.iu;
+            Sum_RU += element.ru;
+            elements.push_back(element);
         }
 };
