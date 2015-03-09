@@ -29,3 +29,14 @@
 *.sdf
 KHUI.opensdf
 *.ipch
+*.pdb
+KHUI/Release/mt.command.1.tlog
+*.tlog
+*.idb
+*.log
+*.manifest
+*.res
+*.cache
+*.lastbuildstate
+*.ilk
+*.rc
