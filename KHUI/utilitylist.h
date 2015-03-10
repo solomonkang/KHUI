@@ -14,21 +14,15 @@ class Element{
 
 class UL {
     public:
-        vector<int> Itemset;
+        int Item;
         int Sum_IU;
         int Sum_RU;
-		vector<Element> elements;
+		vector<Element> Elements;
 		UL() : Sum_IU(0), Sum_RU(0){
         }
-        void Add_Item(int item)
-		{
-			this->Itemset.push_back(item);
-		}
-        
-        void Add_Element(Element element)
-        {
-			Sum_IU += element.iu;
-            Sum_RU += element.ru;
-            elements.push_back(element);
+        void Add_Element(Element E){
+			Sum_IU += E.iu;
+            Sum_RU += E.ru;
+            Elements.push_back(E);
         }
 };
