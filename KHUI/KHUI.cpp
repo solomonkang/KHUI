@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
 	std::cout <<"P3(HUIU-Miner) Start:"<<endl;
 	QueryPerformanceCounter(&P3Start);
 	UL empty;
-	Fill_TopK(empty ,OneItem_ULs);
+	//Fill_TopK(empty ,OneItem_ULs);
 	Find_TopK(empty ,OneItem_ULs);
 	QueryPerformanceCounter(&P3End);
 	times=((double)P3End.QuadPart-(double)P3Start.QuadPart)/fre.QuadPart;
@@ -247,6 +247,12 @@ void Fill_TopK(UL P, ULs P_ULs){
 void Find_TopK(UL P, ULs P_ULs){
 	for(ULs::iterator it=P_ULs.begin();it!=P_ULs.end();it++){
 
+		if(P_ULs.end()-P_ULs.end()!=0){
+			int C=it-P_ULs.begin();
+			int total=P_ULs.end()-P_ULs.end();
+		
+			cout<<C/total*100<<"%"<<endl;
+		}
 		int IU = it->Sum_IU;
 		int RU = it->Sum_RU;
 		int SUM=IU+RU;
