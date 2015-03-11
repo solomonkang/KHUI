@@ -1,2 +1,2 @@
 @echo off
-KHUI.exe Example.txt 0 10
+KHUI.exe chess_utility_spmf.txt 0 10

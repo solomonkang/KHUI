@@ -31,18 +31,19 @@ struct Find_Pairs{
 struct Find_Large{
   Find_Large(int val) : val_(val) {}
   bool operator()(const UL& elem) {
-	  return  elem.Item == val_;
+	  return  elem.Itemset == val_;
   }
   private:
-    int val_;
+    vector<int> val_;
 };
-void Fill_TopK(UL P, pair<vector<int>,vector<UL>> P_ULs);
-void Find_TopK(UL P, pair<vector<int>,vector<UL>> P_ULs);
+
+
+void Fill_TopK(UL P, vector<UL> P_ULs);
+void Find_TopK(UL P, vector<UL> P_ULs);
 void Update_TopK(vector<int> Itemset, int IU);
 void Output_Result();
 UL Combination(UL& P,UL& PX, UL& PY);
-Element Find_Element(vector<Element>, int TID, int LastPos);
-
+pair<int,int> Find_Element(map<int, pair<int,int>>, int TID);
 
 map <pair<int,int>, int > TwoItem_TWU;
 
@@ -57,7 +58,7 @@ int min_value=0;;
 LARGE_INTEGER P1Start,P1End,P2Start,P2End,P3Start,P3End,fre;
 double times;
 char *filename="";
-pair<vector<int>, vector<UL> > OneItem_ULs;
+vector<UL> OneItem_ULs;
 
 vector<ItemsetToValue> TopK;
 vec_kvpair OneItem_TWU;
@@ -119,8 +120,8 @@ int main(int argc, char *argv[])
 	for(vec_kvpair::iterator it=OneItem_TWU.begin();it!=OneItem_TWU.end();it++){
 		if(it->second>=min_value){
 			UL Temp;
-			Temp.Item=it->first;
-			OneItem_ULs.second.push_back(Temp);
+			Temp.Itemset.push_back(it->first);
+			OneItem_ULs.push_back(Temp);
 		}
 	}
 
@@ -150,8 +151,8 @@ int main(int argc, char *argv[])
 		vector<pair<int,int>> Trans;
 		for(vector<int>::iterator it=Items.begin();it!=Items.end();it++)
 		{
-			vector<UL>::iterator ut=find_if(OneItem_ULs.second.begin(),OneItem_ULs.second.end(), Find_Large(*it));
-			if(ut!=OneItem_ULs.second.end()){
+			vector<UL>::iterator ut=find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_Large(*it));
+			if(ut!=OneItem_ULs.end()){
 				pair<int, int> R_T;
 				R_T.first=*it;
 				R_T.second=Utilities[it-Items.begin()];
@@ -161,12 +162,11 @@ int main(int argc, char *argv[])
 		int TU=tu;
 		for(vector<pair<int,int>>::iterator it=Trans.begin();it!=Trans.end();it++)
 		{
-			Element E;
-			E.tid=tid;
-			E.iu=it->second;
-			TU-=E.iu;
-			E.ru=TU;
-			vector<UL>::iterator vt=find_if(OneItem_ULs.second.begin(),OneItem_ULs.second.end(),Find_Large(it->first));
+			pair<int, pair<int,int>> E;
+			E.second.first =it->second;
+			TU-=it->second;
+			E.second.second=TU;
+			vector<UL>::iterator vt=find_if(OneItem_ULs.begin(),OneItem_ULs.end(),Find_Large(it->first));
 			vt->Add_Element(E);
 		}
 		for(vector<pair<int,int>>::iterator pt=Trans.begin();pt!=Trans.end();pt++){
@@ -178,23 +178,17 @@ int main(int argc, char *argv[])
     }
 	fin.close();
 	
-	for(vector<UL>::iterator ut=OneItem_ULs.second.begin();ut!=OneItem_ULs.second.end();ut++){
+	for(vector<UL>::iterator ut=OneItem_ULs.begin();ut!=OneItem_ULs.end();ut++){
 		if(ut->Sum_IU>=min_value){
 			vector<int> I;
-			I.push_back(ut->Item);
+			I.push_back(*ut->Itemset.begin());
 			Update_TopK(I , ut->Sum_IU);
 		}
 	}
-	cout<<min_value;
-
-
-
 	QueryPerformanceCounter(&P2End);
 	times=((double)P2End.QuadPart-(double)P2Start.QuadPart)/fre.QuadPart;
     std::cout <<"P2(Scan Database for Second Time) Execution Time:"<<fixed << setprecision(5) << times << 's' << endl;
 	//Construct
-	cout<<min_value<<endl;
-	system("pause");
 	std::cout <<"P3(HUIU-Miner) Start:"<<endl;
 	QueryPerformanceCounter(&P3Start);
 	UL empty;
@@ -210,62 +204,51 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void Fill_TopK(UL P, pair<vector<int>,vector<UL>> P_ULs){
-	cout<<"Fill_TopK";
+void Fill_TopK(UL P, vector<UL> P_ULs){
+	cout<<" ";
 }
 
-void Find_TopK(UL P,pair<vector<int>,vector<UL>> P_ULs){
-	for(vector<UL>::iterator it=P_ULs.second.begin();it!=P_ULs.second.end();it++){
+void Find_TopK(UL P, vector<UL> P_ULs){
+	for(vector<UL>::iterator it=P_ULs.begin();it!=P_ULs.end();it++){
 		if(it->Sum_IU>=min_value||TopK.size()<k){// If Utility Value of Current Itemset is not less than min_value
-			vector<int> I;
-			I=P_ULs.first;
-			I.push_back(it->Item);
-			Update_TopK(I, it->Sum_IU);
+			Update_TopK(it->Itemset, it->Sum_IU);
 		}
 		UL Px=*it; //Decalre UtilityList Px=*it
-		pair<vector<int>,vector<UL>> Px_Extend_ULs; //Declare UtilityList Px_Extend_ULs
+		vector<UL> Px_Extend_ULs; //Declare UtilityList Px_Extend_ULs
 		if(it->Sum_IU+it->Sum_RU>=min_value){
-			for(vector<UL>::iterator jt=it+1;jt!=P_ULs.second.end();jt++){
+			for(vector<UL>::iterator jt=it+1;jt!=P_ULs.end();jt++){
 				UL Py=*jt;//Decalre UtilityList Px=*jt
-				if(it->Item==jt->Item)
+				if(it->Itemset==jt->Itemset)
 					continue;
-				int TWU_value=TwoItem_TWU[make_pair(it->Item,jt->Item)]; //Get TwoItem_TWU value from Matrix
+				int TWU_value=TwoItem_TWU[make_pair(*it->Itemset.rbegin(),*jt->Itemset.rbegin())]; //Get TwoItem_TWU value from Matrix
 				if(TWU_value<min_value){
 					continue;
 				}
 				else{
-					Px_Extend_ULs.second.push_back(Combination(P, Px, Py));
+					Px_Extend_ULs.push_back(Combination(P, Px, Py));
 				}
 			}
-			Px_Extend_ULs.first.push_back(Px.Item);
 			Find_TopK(Px,Px_Extend_ULs);
 		}
 	}
 }
 UL Combination(UL& P, UL& PX, UL& PY){
 	UL PXY;
-	int Last_Y_Pos=0;
-	for(vector<Element>::iterator a=PX.Elements.begin();a!=PX.Elements.end();a++){
-		Element B=Find_Element(PY.Elements, a->tid, Last_Y_Pos);
-		if(B.tid==-1)
+	PXY.Itemset = PX.Itemset;
+	PXY.Itemset.push_back(*PY.Itemset.rbegin());
+	for(map<int, pair<int,int>>::iterator a=PX.Elements.begin();a!=PX.Elements.end();a++){
+		pair<int,int> B=Find_Element(PY.Elements, a->first);
+		if(B.first==-1)
 			continue;
-		if(P.Item==0){
-			Element E;
-			E.tid=a->tid;
-			E.iu=a->iu+B.iu;
-			E.ru=B.ru;
-			PXY.Add_Element(E);
+		if(P.Itemset.size()==0){
+			PXY.Add_Element(make_pair(a->first, make_pair(a->second.first+B.first, B.second)));
 			continue;
 		}
 		else{
-			int Last_C_Pos=0;
-			Element C=Find_Element(P.Elements, a->tid, Last_C_Pos);
-			if(C.tid!=-1){
-				Element E;
-				E.tid=a->tid;
-				E.iu=a->iu+B.iu-C.iu;
-				E.ru=B.ru;
-				PXY.Add_Element(E);
+			pair<int, int> C=Find_Element(P.Elements, a->first);
+			if(C.first!=-1){
+				PXY.Add_Element(make_pair(a->first, make_pair(a->second.first + B.first-C.first, B.second)));
+				continue;
 			}
 		}
 	}
@@ -299,15 +282,11 @@ void Output_Result(){
 }
 
 
-Element Find_Element(vector<Element> B, int TID, int LastPos){
-	Element E;
-	E.tid=-1;
-	for(vector<Element>::iterator b=B.begin()+LastPos;b!=B.end();b++){
-		if(TID==b->tid){
-			E.tid=TID;
-			E.iu=b->iu;
-			E.ru=b->ru;
+pair<int,int> Find_Element(map<int,pair<int,int>> B, int TID){
+	for(map<int,pair<int,int>>::iterator b=B.begin();b!=B.end();b++){
+		if (TID == b->first){
+			return b->second;
 		}
 	}
-	return E;
+	return make_pair(-1,-1);
 }
