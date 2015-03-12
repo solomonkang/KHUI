@@ -27,10 +27,10 @@ void Scan_Database_First();
 void Scan_Database_Second();
 void Increasing_Min_Value();
 UL Combination(UL& P, UL& PX, UL& PY);
-Element Find_Element(vector<Element> B, int TID);
+Element Find_Element(map<int, Element> Elements, int TID);
 void KHUI(vector<int> Prefix, UL P, vector<UL> P_ULs);
 //Global Variables
-int min_value=0,tid=0;
+int min_value=0,tid=0,hui_count=0;
 unsigned int k;
 char *filename = "";
 set<int> A_Items;
@@ -96,6 +96,7 @@ int main(int argc, char *argv[]){
 	Increasing_Min_Value();
 	vector<int> null;
 	KHUI(null,0,OneItem_ULs);
+	cout << hui_count;
 	system("pause");
 	return 0;
 }
@@ -138,13 +139,20 @@ void Scan_Database_First(){
 	sort(OneItem_TWU.begin(), OneItem_TWU.end(), Sort_OneItemTWU());
 
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
-
 		if (it->second >= min_value){
 			OneItem_ULs.push_back(UL(it->first));
 			A_Items.insert(it->first);
 		}
-		it->second = it - OneItem_TWU.begin();
+		else{
+			OneItem_TWU.erase(it);
+			it--;
+		}
 	}
+	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
+		it->second = it - OneItem_TWU.begin();
+		cout << it->first << ":" << it->second << endl;
+	}
+
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
 		R_Map[it->first] = it->second;
 	}
@@ -154,6 +162,7 @@ void Scan_Database_Second(){
 	string line;
 	fstream fin;
 	fin.open(filename, ios::in);
+	int tid = 0;
 	while (getline(fin, line)){
 		istringstream input(line);
 		int n = 0, tu = 0, count = 0;
@@ -187,11 +196,7 @@ void Scan_Database_Second(){
 		for (vector<pair<pair<int, int>, int >>::iterator it = R_Trans.begin(); it != R_Trans.end(); it++){
 			RU -= it->first.second;
 			vector<UL>::iterator vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(it->first.first));
-			Element E;
-			E.tid = tid;
-			E.iu = it->first.second;
-			E.ru = RU;
-			vt->Add_Element(E);
+			vt->Add_Element(tid,it->first.second,RU);
 		}
 		tid++;
 	}
@@ -204,6 +209,8 @@ void Increasing_Min_Value(){
 void KHUI(vector<int> Prefix, UL P, vector<UL> P_ULs){
 	for (vector<UL>::iterator it = P_ULs.begin(); it != P_ULs.end(); it++){
 		if (it->Sum_IU >= min_value){
+			hui_count++;
+			cout << hui_count;
 		}
 		if (it->Sum_IU + it->Sum_RU>=min_value){
 			vector<UL> Px_Extend_ULs;
@@ -222,34 +229,33 @@ void KHUI(vector<int> Prefix, UL P, vector<UL> P_ULs){
 }
 UL Combination(UL& P, UL& PX, UL& PY){
 	UL PXY=UL(PY.Item);
-	for (int i=0; i < PX.Elements.size(); i++){
-		int FIRST = 0;
-		int MIDDLE;
-		int LAST = PY.Elements.size() - 1;
-		while (FIRST <= LAST){
-			MIDDLE = (FIRST + LAST) / 2;
-			if (PY.Elements[MIDDLE].tid = PX.Elements[i].tid){
-				Element E;
-				E.tid = PX.Elements[i].tid;
-				E.iu = PX.Elements[i].iu + PY.Elements[MIDDLE].iu;
-				E.ru = PY.Elements[MIDDLE].ru;
-				PXY.Add_Element(E);
-				break;
+	for (map<int, Element>::iterator x = PX.Elements.begin(); x != PX.Elements.end(); x++){
+		map<int, Element>::iterator LastY_Pos = PY.Elements.begin();
+		for (map<int, Element>::iterator y=LastY_Pos; y != PY.Elements.end(); y++){
+			if (x->first == y->first){
+				LastY_Pos = y;
+				if (P.Item == int()){
+					PXY.Add_Element(x->first, x->second.iu + y->second.iu, y->second.ru);
+					break;
+				}
+				else{
+					map<int, Element>::iterator LastZ_Pos = P.Elements.begin();
+					for (map<int, Element>::iterator z = LastZ_Pos; z != P.Elements.end(); z++){
+						if (x->first == z->first){
+							LastZ_Pos = z;
+							cout << x->first <<":"<<x->second.iu + y->second.iu - z->second.iu <<":"<< y->second.ru<< endl;
+							PXY.Add_Element(x->first, x->second.iu + y->second.iu - z->second.iu, y->second.ru);
+							break;
+						}
+					}
+					break;
+				}
 			}
-			else if (PY.Elements[MIDDLE].tid > PX.Elements[i].tid){
-				LAST = MIDDLE - 1;
-			}
-			else
-				FIRST = MIDDLE + 1;
 		}
 	}
+	system("pause");
 	return PXY;
 }
-
-
-//{
-//	set <int> aitems; // claim container of avaialbe items
-	
 
 
 //	
@@ -458,12 +464,3 @@ UL Combination(UL& P, UL& PX, UL& PY){
 //}
 //
 //
-//pair<int,int> Find_Element(map<int,pair<int,int>> B, int TID){
-//	for(map<int,pair<int,int>>::iterator b=B.begin();b!=B.end();b++){
-//		if (TID == b->first){
-//			cout << b->second.first << b->second.second;
-//			return b->second;
-//		}
-//	}
-//	return pair<int,int>();
-//}
