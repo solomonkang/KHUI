@@ -27,8 +27,7 @@ void Scan_Database_First();
 void Scan_Database_Second();
 void Increasing_Min_Value();
 UL Combination(UL& P, UL& PX, UL& PY);
-Element Find_Element(map<int, Element> Elements, int TID);
-void KHUI(vector<int> Prefix, UL P, vector<UL> P_ULs);
+void KHUI(UL P, vector<UL> P_ULs);
 //Global Variables
 int min_value=0,tid=0,hui_count=0;
 unsigned int k;
@@ -37,8 +36,8 @@ set<int> A_Items;
 vector<pair<int, int>> OneItem_TWU;
 vector<UL> OneItem_ULs;
 map<int, int> R_Map;
-
-
+int TWU_D;
+LARGE_INTEGER P1Start, P1End, P2Start, P2End, P3Start, P3End, fre;
 //
 //typedef struct TopK_Sort {
 //    bool operator()(pair<vector<int>,int> &left, pair<vector<int>,int> &right) {
@@ -53,10 +52,19 @@ map<int, int> R_Map;
 struct Find_UL{
   Find_UL(int val) : val_(val) {}
   bool operator()(const UL& elem) {
-	  return  elem.Item == val_;
+	  return  *elem.Itemset.begin() == val_;
   }
   private:
     int val_;
+};
+
+struct Find_Element{
+	Find_Element(int val) : val_(val) {}
+	bool operator()(const Element& elem) {
+		return  elem.tid == val_;
+	}
+private:
+	int val_;
 };
 //
 //
@@ -78,7 +86,7 @@ struct Find_UL{
 //typedef pair<int,int> Trans;
 //int min_value=0;;
 //
-//LARGE_INTEGER P1Start,P1End,P2Start,P2End,P3Start,P3End,fre;
+//
 //double times;
 //char *filename="";
 //vector<UL> OneItem_ULs;
@@ -90,12 +98,18 @@ int main(int argc, char *argv[]){
 		min_value = atoi(argv[2]);
 		filename = argv[1];
 		k = atoi(argv[3]);
+		QueryPerformanceFrequency(&fre);
 	}
 	Scan_Database_First();
 	Scan_Database_Second();
 	Increasing_Min_Value();
-	vector<int> null;
-	KHUI(null,0,OneItem_ULs);
+	UL empty;
+	QueryPerformanceCounter(&P1Start);
+	KHUI(empty, OneItem_ULs);
+	QueryPerformanceCounter(&P1End);
+	double times;
+	times = ((double)P1End.QuadPart - (double)P1Start.QuadPart) / fre.QuadPart;
+	std::cout <<"P1(Scan Database for First Time) Execution Time:"<< fixed << setprecision(5) << times << 's' << endl;
 	cout << hui_count;
 	system("pause");
 	return 0;
@@ -105,6 +119,7 @@ void Scan_Database_First(){
 	string line;
 	fstream fin;
 	fin.open(filename, ios::in);
+
 	while (getline(fin, line)){
 		istringstream input(line);
 		int n = 0, tu = 0, count = 0;
@@ -140,7 +155,9 @@ void Scan_Database_First(){
 
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
 		if (it->second >= min_value){
-			OneItem_ULs.push_back(UL(it->first));
+			UL TempUL;
+			TempUL.Itemset.push_back (it->first);
+			OneItem_ULs.push_back(TempUL);
 			A_Items.insert(it->first);
 		}
 		else{
@@ -150,7 +167,6 @@ void Scan_Database_First(){
 	}
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
 		it->second = it - OneItem_TWU.begin();
-		cout << it->first << ":" << it->second << endl;
 	}
 
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
@@ -191,75 +207,77 @@ void Scan_Database_Second(){
 				RU += U[it - I.begin()];
 			}
 		}
-		//sort R_Trans;
-		sort(R_Trans.begin(), R_Trans.end(), Revise_Trans());
+		sort(R_Trans.begin(), R_Trans.end(), Revise_Trans()); //sort R_Trans;
 		for (vector<pair<pair<int, int>, int >>::iterator it = R_Trans.begin(); it != R_Trans.end(); it++){
 			RU -= it->first.second;
 			vector<UL>::iterator vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(it->first.first));
-			vt->Add_Element(tid,it->first.second,RU);
+			Element E;
+			E.tid = tid;
+			E.iu = it->first.second;
+			E.ru = RU;
+			vt->Add_Element(E);
 		}
+		TWU_D += tu;
 		tid++;
 	}
 }
 
 void Increasing_Min_Value(){
-	cout << "Phase 3" << endl;
+	cout << "" << endl;
 }
 
-void KHUI(vector<int> Prefix, UL P, vector<UL> P_ULs){
+void KHUI(UL P, vector<UL> P_ULs){
 	for (vector<UL>::iterator it = P_ULs.begin(); it != P_ULs.end(); it++){
+		if (it->Itemset.size() == 1){
+			cout << *it->Itemset.begin();
+		}
 		if (it->Sum_IU >= min_value){
 			hui_count++;
-			cout << hui_count;
 		}
-		if (it->Sum_IU + it->Sum_RU>=min_value){
-			vector<UL> Px_Extend_ULs;
-			UL Px = *it;
+		if (it->Sum_IU + it->Sum_RU >= min_value){
+			vector<UL> P_Extend_ULs;
 			for (vector<UL>::iterator jt = it + 1; jt != P_ULs.end(); jt++){
-				UL Py = *jt;
-				if (it->Item != jt->Item){
-					Px_Extend_ULs.push_back(Combination(P, Px, Py));
-				}
+				P_Extend_ULs.push_back(Combination(P, *it, *jt));
 			}
-			vector<int> NewPrefix;
-			NewPrefix.push_back(Px.Item);
-			KHUI(NewPrefix, Px, Px_Extend_ULs);
+			KHUI(*it, P_Extend_ULs);
 		}
 	}
 }
 UL Combination(UL& P, UL& PX, UL& PY){
-	UL PXY=UL(PY.Item);
-	for (map<int, Element>::iterator x = PX.Elements.begin(); x != PX.Elements.end(); x++){
-		map<int, Element>::iterator LastY_Pos = PY.Elements.begin();
-		for (map<int, Element>::iterator y=LastY_Pos; y != PY.Elements.end(); y++){
-			if (x->first == y->first){
-				LastY_Pos = y;
-				if (P.Item == int()){
-					PXY.Add_Element(x->first, x->second.iu + y->second.iu, y->second.ru);
-					break;
-				}
-				else{
-					map<int, Element>::iterator LastZ_Pos = P.Elements.begin();
-					for (map<int, Element>::iterator z = LastZ_Pos; z != P.Elements.end(); z++){
-						if (x->first == z->first){
-							LastZ_Pos = z;
-							cout << x->first <<":"<<x->second.iu + y->second.iu - z->second.iu <<":"<< y->second.ru<< endl;
-							PXY.Add_Element(x->first, x->second.iu + y->second.iu - z->second.iu, y->second.ru);
-							break;
-						}
-					}
-					break;
+	UL PXY;
+	PXY.Itemset = PX.Itemset;
+	PXY.Itemset.push_back(*PY.Itemset.rbegin());
+	for (vector<Element>::iterator x = PX.Elements.begin(); x != PX.Elements.end(); x++){
+		vector<Element>::iterator Last_Y_Pos = PY.Elements.begin();
+		auto y = find_if(Last_Y_Pos, PY.Elements.end(), Find_Element(x->tid));
+		if (y != PY.Elements.end()){
+			Last_Y_Pos = y;
+			if (P.Itemset.size() == 0){
+				Element E;
+				E = *y;
+				E.iu += x->iu;
+				PXY.Add_Element(E);
+			}
+			else{
+				vector<Element>::iterator Last_Z_Pos = P.Elements.begin();
+				auto z = find_if(Last_Z_Pos, P.Elements.end(), Find_Element(x->tid));
+				if (z != P.Elements.end()){
+					Last_Z_Pos = z;
+					Element E;
+					E.tid = x->tid;
+					E.iu = x->iu + y->iu -z->iu;
+					E.ru = y->ru;
+					PXY.Add_Element(E);
 				}
 			}
 		}
 	}
-	system("pause");
 	return PXY;
 }
 
 
 //	
-//    QueryPerformanceFrequency(&fre); //取得CPU頻率
+//     //取得CPU頻率
 //    QueryPerformanceCounter(&P1Start); //取得開機到現在經過幾個CPU Cycle
 //	std::cout <<"P1(Scan Database for First Time) Start:"<<endl;
 //    fin.open(filename,ios::in);

@@ -1,27 +1,27 @@
 #include <iostream>
 #include <vector>
+#include <map>
 using namespace std;
 
 class Element{
-	public:
-		int iu;
-		int ru;
+public:
+	int tid;
+	int iu;
+	int ru;
 };
 
 
 class UL {
-    public:
-		int Item; //Item name
-        int Sum_IU; // Sum of Utility
-        int Sum_RU; // Sum of Remaining Utility
-		map<int, Element> Elements; // vector of <Element>
-		UL(int Item) : Sum_IU(0), Sum_RU(0){ //Initialize value of Sum_IU and Sum_RU
-			this->Item = Item;
-        }
-        void Add_Element(int tid,int iu,int ru){ //Add_Element sub function
-			Sum_IU += iu;
-            Sum_RU += ru;
-			this->Elements[tid].iu = iu;
-			this->Elements[tid].ru = ru;
-        }
+public:
+	vector<int> Itemset; //Item name
+	int Sum_IU; // Sum of Utility
+	int Sum_RU; // Sum of Remaining Utility
+	vector<Element> Elements; // vector of <Element>
+	UL() : Sum_IU(0), Sum_RU(0){ //Initialize value of Sum_IU and Sum_RU
+	}
+	void Add_Element(Element E){ //Add_Element sub function
+		Sum_IU += E.iu;
+		Sum_RU += E.ru;
+		Elements.push_back(E);
+	}
 };
