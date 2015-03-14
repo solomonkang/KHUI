@@ -26,8 +26,11 @@ typedef struct Revise_Trans{
 void Scan_Database_First();
 void Scan_Database_Second();
 void Increasing_Min_Value();
-UL Combination(UL& P, UL& PX, UL& PY);
 void KHUI(UL P, vector<UL> P_ULs);
+void Output_Result();
+void Output_Itemset(vector<int> I);
+UL Combination(UL& P, UL& Px, UL& Py);
+
 //Global Variables
 int min_value=0,tid=0,hui_count=0;
 unsigned int k;
@@ -37,7 +40,8 @@ vector<pair<int, int>> OneItem_TWU;
 vector<UL> OneItem_ULs;
 map<int, int> R_Map;
 int TWU_D;
-LARGE_INTEGER P1Start, P1End, P2Start, P2End, P3Start, P3End, fre;
+LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
+double total_time;
 //
 //typedef struct TopK_Sort {
 //    bool operator()(pair<vector<int>,int> &left, pair<vector<int>,int> &right) {
@@ -71,8 +75,7 @@ private:
 //void Fill_TopK(UL P, vector<UL> P_ULs);
 //void Find_TopK(UL P, vector<UL> P_ULs);
 //void Update_TopK(vector<int> Itemset, int IU);
-//void Output_Result();
-//UL Combination(UL& P,UL& PX, UL& PY);
+//UL Combination(UL& P,UL& Px, UL& Py);
 //pair<int,int> Find_Element(map<int, pair<int,int>>, int TID);
 //
 //map <pair<int,int>, int > TwoItem_TWU;
@@ -100,18 +103,14 @@ int main(int argc, char *argv[]){
 		k = atoi(argv[3]);
 		QueryPerformanceFrequency(&fre);
 	}
+	QueryPerformanceCounter(&Start);
 	Scan_Database_First();
 	Scan_Database_Second();
 	Increasing_Min_Value();
 	UL empty;
-	QueryPerformanceCounter(&P1Start);
 	KHUI(empty, OneItem_ULs);
-	QueryPerformanceCounter(&P1End);
-	double times;
-	times = ((double)P1End.QuadPart - (double)P1Start.QuadPart) / fre.QuadPart;
-	std::cout <<"P1(Scan Database for First Time) Execution Time:"<< fixed << setprecision(5) << times << 's' << endl;
-	cout << hui_count;
-	system("pause");
+	QueryPerformanceCounter(&End);
+	Output_Result();
 	return 0;
 }
 
@@ -217,7 +216,6 @@ void Scan_Database_Second(){
 			E.ru = RU;
 			vt->Add_Element(E);
 		}
-		TWU_D += tu;
 		tid++;
 	}
 }
@@ -228,10 +226,8 @@ void Increasing_Min_Value(){
 
 void KHUI(UL P, vector<UL> P_ULs){
 	for (vector<UL>::iterator it = P_ULs.begin(); it != P_ULs.end(); it++){
-		if (it->Itemset.size() == 1){
-			cout << *it->Itemset.begin();
-		}
 		if (it->Sum_IU >= min_value){
+			//Output_Itemset(it->Itemset);
 			hui_count++;
 		}
 		if (it->Sum_IU + it->Sum_RU >= min_value){
@@ -243,242 +239,62 @@ void KHUI(UL P, vector<UL> P_ULs){
 		}
 	}
 }
-UL Combination(UL& P, UL& PX, UL& PY){
-	UL PXY;
-	PXY.Itemset = PX.Itemset;
-	PXY.Itemset.push_back(*PY.Itemset.rbegin());
-	for (vector<Element>::iterator x = PX.Elements.begin(); x != PX.Elements.end(); x++){
-		vector<Element>::iterator Last_Y_Pos = PY.Elements.begin();
-		auto y = find_if(Last_Y_Pos, PY.Elements.end(), Find_Element(x->tid));
-		if (y != PY.Elements.end()){
-			Last_Y_Pos = y;
-			if (P.Itemset.size() == 0){
-				Element E;
-				E = *y;
-				E.iu += x->iu;
-				PXY.Add_Element(E);
-			}
-			else{
-				vector<Element>::iterator Last_Z_Pos = P.Elements.begin();
-				auto z = find_if(Last_Z_Pos, P.Elements.end(), Find_Element(x->tid));
-				if (z != P.Elements.end()){
-					Last_Z_Pos = z;
-					Element E;
-					E.tid = x->tid;
-					E.iu = x->iu + y->iu -z->iu;
-					E.ru = y->ru;
-					PXY.Add_Element(E);
+UL Combination(UL& P, UL& Px, UL& Py){
+	UL Pxy;
+	Pxy.Itemset = Px.Itemset;
+	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
+	vector<Element>::iterator Last_Y_Pos = Py.Elements.begin();
+	vector<Element>::iterator Last_Z_Pos = P.Elements.begin();
+	for (vector<Element>::iterator x = Px.Elements.begin(); x != Px.Elements.end(); x++){
+		for (vector<Element>::iterator y = Last_Y_Pos; y != Py.Elements.end(); y++){
+			if (x->tid == y->tid){
+				if (P.Itemset.size() == 0){
+					Last_Y_Pos = y+1;
+					Element E = *y;
+					E.iu += x->iu;
+					Pxy.Add_Element(E);
+					break;
 				}
+				else{
+					for (vector<Element>::iterator z = Last_Z_Pos; z != P.Elements.end(); z++){
+						if (x->tid == z->tid){
+							Last_Z_Pos = z+1;
+							Element E = *y;
+							E.iu += (x->iu-z->iu);
+							Pxy.Add_Element(E);
+							break;
+						}
+						else if (z->tid > x->tid){
+							Last_Z_Pos = z;
+							break;
+						}
+					}
+					break;
+				}
+			}
+			else if (y->tid > x->tid){
+				Last_Y_Pos=y;
+				break;
 			}
 		}
 	}
-	return PXY;
+	return Pxy;
 }
 
+void Output_Result(){
+	fstream file;
+	file.open("Result.txt", ios::app);     
+	total_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
+	file<<filename<<" " << min_value <<" "<< fixed << setprecision(5) << hui_count << total_time <<endl;
+	file.close();
+}
 
-//	
-//     //取得CPU頻率
-//    QueryPerformanceCounter(&P1Start); //取得開機到現在經過幾個CPU Cycle
-//	std::cout <<"P1(Scan Database for First Time) Start:"<<endl;
-//    fin.open(filename,ios::in);
-//	while(getline(fin, line)){
-//		istringstream iss(line);
-//		int n=0,tu=0,count=0;
-//		vector<int> Items, Utilities;
-//		while (iss>>n)
-//		{
-//			if(count==0){
-//				Items.push_back(n);
-//			}
-//			else if (count == 1){
-//				tu = n;
-//			}
-//			else if(count==2){
-//				Utilities.push_back(n);
-//			}
-//			if(iss.peek() ==':'){
-//				iss.ignore();
-//				count++;
-//			}
-//		}
-//		for(vector<int>::iterator it=Items.begin();it!=Items.end();it++)
-//		{
-//			ItemsetToTWU::iterator mt = OneItem_TWU.find(*it);
-//			if(mt==OneItem_TWU.end()){
-//				OneItem_TWU.insert(make_pair(*it,tu));
-//			}
-//			else{
-//				mt->second+=tu;
-//			}
-//		}
-//    }
-//	fin.close();
-//	for (ItemsetToTWU::iterator mt = OneItem_TWU.begin(); mt != OneItem_TWU.end();mt++){
-//		cout << mt->first <<":"<< mt->second <<endl;
-//	}
-//	QueryPerformanceCounter(&P1End);
-//    times=((double)P1End.QuadPart-(double)P1Start.QuadPart)/fre.QuadPart;
-//    std::cout <<"P1(Scan Database for First Time) Execution Time:"<< fixed << setprecision(5) << times << 's' << endl;
-//
-//	std::sort(OneItem_TWU.begin(), OneItem_TWU.end(), sort_pairs()); //sort 1-items with TWU order
-//
-//	for(vec_kvpair::iterator it=OneItem_TWU.begin();it!=OneItem_TWU.end();it++){
-//		if(it->second>=min_value){
-//			UL Temp;
-//			Temp.Itemset.push_back(it->first);
-//			A_Items.insert(it->first);
-//			OneItem_ULs.push_back(Temp);
-//		}
-//	}
-//
-//	cout<<endl;
-//	std::cout <<"P2(Scan Database for Second Time) Start:"<<endl;
-//	QueryPerformanceCounter(&P2Start);
-//    fin.open(filename,ios::in);
-//	tid = 0;
-//	while(getline(fin, line)){
-//		istringstream iss(line);
-//		int n=0,tu=0,count=0;
-//		vector<int> Items,R_Items,Utilities,R_Utilities;
-//		while (iss>>n)
-//		{
-//			if(count==0)
-//				Items.push_back(n);
-//			else if(count==1){
-//				tu=n;
-//			}
-//			else{
-//				Utilities.push_back(n);
-//			}
-//			if(iss.peek() ==':'){
-//				iss.ignore();
-//				count++;
-//			}
-//		}
-//		for(vector<int>::iterator it=Items.begin();it!=Items.end();it++)
-//		{
-//		}
-//		int TU=tu;
-//		for (vector<int>::iterator it = R_Items.begin();it!=R_Items.end(); it++)
-//		{
-//			vector<UL>::iterator vt=find_if(OneItem_ULs.begin(),OneItem_ULs.end(),Find_Large(*it));
-//			int iu = R_Utilities[it - R_Items.begin()];
-//			int ru = TU-iu;
-//			vt->Add_Element(make_pair(tid, make_pair(iu,ru)));
-//		}
-//		for(vector<int>::iterator it=R_Items.begin();it!=R_Items.end();it++){
-//			for(vector<int>::iterator jt=it+1;jt!=R_Items.end();jt++){
-//				TwoItem_TWU[make_pair(*it,*jt)]+=tu;
-//			}
-//		}
-//		tid++;
-//    }
-//	fin.close();
-//	
-//	for(vector<UL>::iterator ut=OneItem_ULs.begin();ut!=OneItem_ULs.end();ut++){
-//		if(ut->Sum_IU>=min_value){
-//			vector<int> I;
-//			I.push_back(*ut->Itemset.begin());
-//			Update_TopK(I , ut->Sum_IU);
-//		}
-//	}
-//	QueryPerformanceCounter(&P2End);
-//	times=((double)P2End.QuadPart-(double)P2Start.QuadPart)/fre.QuadPart;
-//    std::cout <<"P2(Scan Database for Second Time) Execution Time:"<<fixed << setprecision(5) << times << 's' << endl;
-//	Construct
-//	std::cout <<"P3(HUIU-Miner) Start:"<<endl;
-//	QueryPerformanceCounter(&P3Start);
-//	UL empty;
-//	Fill_TopK(empty ,OneItem_ULs);
-//	Find_TopK(empty ,OneItem_ULs);
-//	QueryPerformanceCounter(&P3End);
-//	times=((double)P3End.QuadPart-(double)P3Start.QuadPart)/fre.QuadPart;
-//    std::cout<<"P3(HUIU-Miner) Execution Time:"<< fixed << setprecision(5) << times << 's' << endl;
-//	std::cout<<"Mission Complete!"<<endl;
-//
-//	Output_Result();
-//	system("pause");
-//	return 0;
-//}
-//
-//void Fill_TopK(UL P, vector<UL> P_ULs){
-//	cout<<" ";
-//}
-//
-//void Find_TopK(UL P, vector<UL> P_ULs){
-//	for(vector<UL>::iterator it=P_ULs.begin();it!=P_ULs.end();it++){
-//		if(it->Sum_IU>=min_value||TopK.size()<k){// If Utility Value of Current Itemset is not less than min_value
-//			Update_TopK(it->Itemset, it->Sum_IU);
-//		}
-//		UL Px=*it; //Decalre UtilityList Px=*it
-//		vector<UL> Px_Extend_ULs; //Declare UtilityList Px_Extend_ULs
-//		if(it->Sum_IU+it->Sum_RU>=min_value){
-//			for(vector<UL>::iterator jt=it+1;jt!=P_ULs.end();jt++){
-//				UL Py=*jt;//Decalre UtilityList Px=*jt
-//				if(it->Itemset==jt->Itemset)
-//					continue;
-//				int TWU_value=TwoItem_TWU[make_pair(*it->Itemset.rbegin(),*jt->Itemset.rbegin())]; //Get TwoItem_TWU value from Matrix
-//				if(TWU_value<min_value){
-//					continue;
-//				}
-//				else{
-//					Px_Extend_ULs.push_back(Combination(P, Px, Py));
-//				}
-//			}
-//			Find_TopK(Px,Px_Extend_ULs);
-//		}
-//	}
-//}
-//UL Combination(UL& P, UL& PX, UL& PY){
-//	UL PXY;
-//	PXY.Itemset = PX.Itemset;
-//	PXY.Itemset.push_back(*PY.Itemset.rbegin());
-//	for(map<int, pair<int,int>>::iterator a=PX.Elements.begin();a!=PX.Elements.end();a++){
-//		pair<int,int> B=Find_Element(PY.Elements, a->first);
-//		if(B == pair<int,int>())
-//			continue;
-//		if(P.Itemset.size()==0){
-//			PXY.Add_Element(make_pair(a->first, make_pair(a->second.first+B.first, B.second)));
-//			continue;
-//		}
-//		else{
-//			pair<int, int> C=Find_Element(P.Elements, a->first);
-//			if (C == pair<int, int>()){
-//				continue;
-//			}
-//			else{
-//				PXY.Add_Element(make_pair(a->first, make_pair(a->second.first + B.first-C.first, B.second)));
-//				continue;
-//			}
-//		}
-//	}
-//	return PXY;
-//}
-//
-//void Update_TopK(vector<int> Itemset, int IU){
-//	ItemsetToValue Temp;
-//	Temp.first=Itemset;
-//	Temp.second=IU;
-//	TopK.push_back(Temp);
-//	sort(TopK.begin(), TopK.end(), TopK_Sort());
-//	while(TopK.size()>k){
-//		TopK.erase(TopK.begin());
-//	}
-//}
-//
-//void Output_Result(){
-//	fstream file;
-//	file.open("Result.txt", ios::app);     
-//	if(!file){
-//		exit(1);
-//    }
-//	file<<filename<<" " << min_value << " "<<k<<" "<< fixed << setprecision(5) << times<<endl;
-//	for(vector<ItemsetToValue>::iterator iv=TopK.begin();iv!=TopK.end();iv++){
-//		for(vector<int>::iterator pt=iv->first.begin();pt!=iv->first.end();pt++){
-//			file<<*pt<<"\t";
-//		}
-//		file<<iv->second<<endl;
-//	}
-//}
-//
-//
+void Output_Itemset(vector<int> I){
+	fstream file;
+	file.open("Result.txt", ios::app);
+	for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
+		file << *it <<"\t";
+	}
+	file << endl;
+	file.close();
+}

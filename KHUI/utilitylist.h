@@ -19,7 +19,7 @@ public:
 	vector<Element> Elements; // vector of <Element>
 	UL() : Sum_IU(0), Sum_RU(0){ //Initialize value of Sum_IU and Sum_RU
 	}
-	void Add_Element(Element E){ //Add_Element sub function
+	void Add_Element(const Element& E){ //Add_Element sub function
 		Sum_IU += E.iu;
 		Sum_RU += E.ru;
 		Elements.push_back(E);
