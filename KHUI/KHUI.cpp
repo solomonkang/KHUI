@@ -28,7 +28,7 @@ void Scan_Database_Second();
 void Increasing_Min_Value();
 void KHUI(UL P, vector<UL> P_ULs);
 void Output_Result();
-void Output_Itemset(vector<int> I);
+void Output_Itemset(vector<int> I, int IU);
 UL Combination(UL& P, UL& Px, UL& Py);
 
 //Global Variables
@@ -39,7 +39,7 @@ set<int> A_Items;
 vector<pair<int, int>> OneItem_TWU;
 vector<UL> OneItem_ULs;
 map<int, int> R_Map;
-int TWU_D;
+map <pair<int, int>, int > IU_Matrix;
 LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
 double total_time;
 //
@@ -78,10 +78,8 @@ private:
 //UL Combination(UL& P,UL& Px, UL& Py);
 //pair<int,int> Find_Element(map<int, pair<int,int>>, int TID);
 //
-//map <pair<int,int>, int > TwoItem_TWU;
 //
 //unsigned int TopK_count=0,k;
-//typedef unordered_map<int, int> ItemsetToTWU;
 //typedef pair<vector<int>,  int> ivpair;
 //typedef pair<int, int> kvpair;
 //typedef std::vector<kvpair> vec_kvpair;
@@ -210,6 +208,9 @@ void Scan_Database_Second(){
 		for (vector<pair<pair<int, int>, int >>::iterator it = R_Trans.begin(); it != R_Trans.end(); it++){
 			RU -= it->first.second;
 			vector<UL>::iterator vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(it->first.first));
+			//for (vector<pair<pair<int, int>, int >>::iterator jt = it + 1; jt != R_Trans.end(); jt++){
+			//	IU_Matrix[make_pair(it->first.first,jt->first.first)] += tu;
+			//}
 			Element E;
 			E.tid = tid;
 			E.iu = it->first.second;
@@ -227,7 +228,7 @@ void Increasing_Min_Value(){
 void KHUI(UL P, vector<UL> P_ULs){
 	for (vector<UL>::iterator it = P_ULs.begin(); it != P_ULs.end(); it++){
 		if (it->Sum_IU >= min_value){
-			//Output_Itemset(it->Itemset);
+			//Output_Itemset(it->Itemset, it->Sum_IU);
 			hui_count++;
 		}
 		if (it->Sum_IU + it->Sum_RU >= min_value){
@@ -243,6 +244,10 @@ UL Combination(UL& P, UL& Px, UL& Py){
 	UL Pxy;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
+	//for (vector<int>::iterator it = Pxy.Itemset.begin(); it != Pxy.Itemset.end(); it++){
+	//	cout << *it <<"\t";
+	//}
+	//cout << endl;
 	vector<Element>::iterator Last_Y_Pos = Py.Elements.begin();
 	vector<Element>::iterator Last_Z_Pos = P.Elements.begin();
 	for (vector<Element>::iterator x = Px.Elements.begin(); x != Px.Elements.end(); x++){
@@ -285,16 +290,17 @@ void Output_Result(){
 	fstream file;
 	file.open("Result.txt", ios::app);     
 	total_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
-	file<<filename<<" " << min_value <<" "<< fixed << setprecision(5) << hui_count << total_time <<endl;
+	file<<filename<<" " << min_value <<" "<< fixed << setprecision(5) << hui_count <<" "<< total_time <<endl;
 	file.close();
 }
 
-void Output_Itemset(vector<int> I){
+void Output_Itemset(vector<int> I, int IU){
 	fstream file;
 	file.open("Result.txt", ios::app);
 	for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
 		file << *it <<"\t";
 	}
+	file << "Item Utility = " << IU;
 	file << endl;
 	file.close();
 }
