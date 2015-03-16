@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "utilitylist.h"
+#include "omp.h"
+
 using namespace std;
 
 typedef struct Find_OneItemTWU{
@@ -23,45 +25,13 @@ typedef struct Revise_Trans{
 	}
 } Revise_Trans;
 
-void Scan_Database_First();
-void Scan_Database_Second();
-void Increasing_Min_Value(UL P, vector<UL> P_ULs);
-void KHUI(UL P, vector<UL> P_ULs);
-void Output_Result();
-void Output_Itemset(vector<int> I, int IU);
-UL Combination(UL& P, UL& Px, UL& Py);
-
-//Global Variables
-int min_value=0,tid=0,hui_count=0;
-unsigned int k;
-char *filename = "";
-set<int> A_Items;
-vector<pair<int, int>> OneItem_TWU;
-vector<UL> OneItem_ULs;
-map<int, int> R_Map;
-map <pair<int, int>, int > IU_Matrix;
-LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
-double total_time;
-UL empty;
-
-//
-//typedef struct TopK_Sort {
-//    bool operator()(pair<vector<int>,int> &left, pair<vector<int>,int> &right) {
-//        return left.second < right.second;
-//    }
-//} TopK_Sort;
-//
-//
-
-//
-//
 struct Find_UL{
-  Find_UL(int val) : val_(val) {}
-  bool operator()(const UL& elem) {
-	  return  *elem.Itemset.begin() == val_;
-  }
-  private:
-    int val_;
+	Find_UL(int val) : val_(val) {}
+	bool operator()(const UL& elem) {
+		return  *elem.Itemset.begin() == val_;
+	}
+private:
+	int val_;
 };
 
 struct Find_Element{
@@ -72,6 +42,37 @@ struct Find_Element{
 private:
 	int val_;
 };
+
+typedef struct TopK_Sort {
+    bool operator()(pair<vector<int>,int> &left, pair<vector<int>,int> &right) {
+        return left.second < right.second;
+    }
+} TopK_Sort;
+
+void Scan_Database_First();
+void Scan_Database_Second();
+void Increasing_Min_Value(UL P, vector<UL> P_ULs);
+void KHUI(UL P, vector<UL> P_ULs);
+void Output_Result();
+void Output_Itemset(vector<int> I, int IU);
+void Update_TopK(vector<int> Itemset, int IU);
+UL Combination(UL& P, UL& Px, UL& Py);
+
+//Global Variables
+int min_value=0,tid=0,hui_count=0;
+unsigned int k;
+char *filename = "";
+set<int> A_Items;
+vector<pair<int, int>> OneItem_TWU;
+vector<UL> OneItem_ULs;
+map<int, int> R_Map;
+map <set<int>, int > IU_Matrix;
+LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
+double total_time;
+UL empty;
+vector<pair<vector<int>, int>> TopK;
+
+
 
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
@@ -91,10 +92,12 @@ int main(int argc, char *argv[]){
 }
 
 void Scan_Database_First(){
+	cout << "Phase 1: Scan database" << endl;
 	string line;
 	fstream fin;
 	fin.open(filename, ios::in);
 
+#pragma loop(hint_parallel(4))
 	while (getline(fin, line)){
 		istringstream input(line);
 		int n = 0, tu = 0, count = 0;
@@ -106,6 +109,9 @@ void Scan_Database_First(){
 			}
 			else if (count == 1){
 				tu = n;
+				if (tu >= min_value){
+					min_value = tu;
+				}
 			}
 			else{
 				U.push_back(n);
@@ -116,13 +122,27 @@ void Scan_Database_First(){
 			}
 		}
 		for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
-			vector<pair<int, int>>::iterator mt = find_if(OneItem_TWU.begin(), OneItem_TWU.end(),Find_OneItemTWU(*it)); //check if the Item is in the vector
+			vector<pair<int, int>>::iterator mt = find_if(OneItem_TWU.begin(), OneItem_TWU.end(), Find_OneItemTWU(*it)); //check if the Item is in the vector
 			if (mt == OneItem_TWU.end()){
 				OneItem_TWU.push_back(make_pair(*it, tu)); //push_back as a new pair;
 			}
 			else{
 				mt->second += tu; //update pair->second value;
 			}
+			for (auto jt = it + 1; jt != I.end(); jt++){
+				set<int> Itemset;
+				Itemset.insert(*it);
+				Itemset.insert(*jt);
+				IU_Matrix[Itemset] += (U[it - I.begin()] + U[jt - I.begin()]);
+			}
+		}
+	}
+	for (auto mt = IU_Matrix.begin(); mt != IU_Matrix.end(); mt++){
+		if (mt->second >= min_value||TopK.size()<k){
+			vector<int> V;
+			V.push_back(*mt->first.begin());
+			V.push_back(*mt->first.rbegin());
+			Update_TopK(V, mt->second);
 		}
 	}
 	//sort OneItem_TWU with twu Ascending order and save Available items
@@ -186,9 +206,6 @@ void Scan_Database_Second(){
 		for (vector<pair<pair<int, int>, int >>::iterator it = R_Trans.begin(); it != R_Trans.end(); it++){
 			RU -= it->first.second;
 			vector<UL>::iterator vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(it->first.first));
-			//for (vector<pair<pair<int, int>, int >>::iterator jt = it + 1; jt != R_Trans.end(); jt++){
-			//	IU_Matrix[make_pair(it->first.first,jt->first.first)] += tu;
-			//}
 			Element E;
 			E.tid = tid;
 			E.iu = it->first.second;
@@ -199,26 +216,27 @@ void Scan_Database_Second(){
 	}
 }
 
+
 void Increasing_Min_Value(UL P, vector<UL> P_ULs){
 	for (vector<UL>::reverse_iterator it = P_ULs.rbegin(); it != P_ULs.rend(); it++){
-		if (it->Sum_IU>=min_value){
-		
+		if (it->Sum_IU>=min_value||TopK.size()<k){
+			Update_TopK(it->Itemset, it->Sum_IU);
+			Output_Itemset(it->Itemset, it->Sum_IU);
 		}
-		if (it->Sum_IU + it->Sum_RU >= min_value){
-			for (vector<UL>::reverse_iterator jt = it + 1; jt != P_ULs.rend(); jt++){
-				UL Pxy = Combination(P, *it, *jt);
-				if (Pxy.Sum_IU >= min_value){
-					Output_Itemset(Pxy.Itemset, Pxy.Sum_IU);
-				}
+		vector<UL> Px_Extend_ULs;
+		for (vector<UL>::reverse_iterator jt = it + 1; jt != P_ULs.rend(); jt++){
+			if (it->Sum_IU >= min_value&&jt->Sum_IU >= min_value){
+				Px_Extend_ULs.push_back(Combination(P,*it, *jt));
 			}
 		}
+		Increasing_Min_Value(*it, Px_Extend_ULs);
 	}
 }
 
 void KHUI(UL P, vector<UL> P_ULs){
 	for (vector<UL>::iterator it = P_ULs.begin(); it != P_ULs.end(); it++){
 		if (it->Sum_IU >= min_value){
-			//Output_Itemset(it->Itemset, it->Sum_IU);
+			Update_TopK(it->Itemset, it->Sum_IU);
 			hui_count++;
 		}
 		if (it->Sum_IU + it->Sum_RU >= min_value){
@@ -245,7 +263,7 @@ UL Combination(UL& P, UL& Px, UL& Py){
 		for (vector<Element>::iterator y = Last_Y_Pos; y != Py.Elements.end(); y++){
 			if (x->tid == y->tid){
 				if (P.Itemset.size() == 0){
-					Last_Y_Pos = y+1;
+					Last_Y_Pos = y + 1;
 					Element E = *y;
 					E.iu += x->iu;
 					Pxy.Add_Element(E);
@@ -254,9 +272,9 @@ UL Combination(UL& P, UL& Px, UL& Py){
 				else{
 					for (vector<Element>::iterator z = Last_Z_Pos; z != P.Elements.end(); z++){
 						if (x->tid == z->tid){
-							Last_Z_Pos = z+1;
+							Last_Z_Pos = z + 1;
 							Element E = *y;
-							E.iu += (x->iu-z->iu);
+							E.iu += (x->iu - z->iu);
 							Pxy.Add_Element(E);
 							break;
 						}
@@ -269,7 +287,7 @@ UL Combination(UL& P, UL& Px, UL& Py){
 				}
 			}
 			else if (y->tid > x->tid){
-				Last_Y_Pos=y;
+				Last_Y_Pos = y;
 				break;
 			}
 		}
@@ -290,9 +308,18 @@ void Output_Itemset(vector<int> I, int IU){
 	fstream file;
 	file.open("Result.txt", ios::app);
 	for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
-		file << *it <<"\t";
+		cout << *it <<"\t";
 	}
-	file << ":" << IU;
-	file << endl;
+	cout << ":" << IU;
+	cout << endl;
 	file.close();
+}
+void Update_TopK(vector<int> Itemset, int IU){
+	TopK.push_back(make_pair(Itemset, IU));
+	sort(TopK.begin(), TopK.end(), TopK_Sort());
+	if (TopK.size() > k){
+		TopK.erase(TopK.begin());
+	}
+	min_value = TopK.begin()->second;
+	cout << min_value<<endl;
 }
