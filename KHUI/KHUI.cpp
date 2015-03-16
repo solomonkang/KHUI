@@ -25,7 +25,7 @@ typedef struct Revise_Trans{
 
 void Scan_Database_First();
 void Scan_Database_Second();
-void Increasing_Min_Value();
+void Increasing_Min_Value(UL P, vector<UL> P_ULs);
 void KHUI(UL P, vector<UL> P_ULs);
 void Output_Result();
 void Output_Itemset(vector<int> I, int IU);
@@ -42,6 +42,8 @@ map<int, int> R_Map;
 map <pair<int, int>, int > IU_Matrix;
 LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
 double total_time;
+UL empty;
+
 //
 //typedef struct TopK_Sort {
 //    bool operator()(pair<vector<int>,int> &left, pair<vector<int>,int> &right) {
@@ -70,30 +72,7 @@ struct Find_Element{
 private:
 	int val_;
 };
-//
-//
-//void Fill_TopK(UL P, vector<UL> P_ULs);
-//void Find_TopK(UL P, vector<UL> P_ULs);
-//void Update_TopK(vector<int> Itemset, int IU);
-//UL Combination(UL& P,UL& Px, UL& Py);
-//pair<int,int> Find_Element(map<int, pair<int,int>>, int TID);
-//
-//
-//unsigned int TopK_count=0,k;
-//typedef pair<vector<int>,  int> ivpair;
-//typedef pair<int, int> kvpair;
-//typedef std::vector<kvpair> vec_kvpair;
-//typedef pair<vector<int>, int> ItemsetToValue;
-//typedef pair<int,int> Trans;
-//int min_value=0;;
-//
-//
-//double times;
-//char *filename="";
-//vector<UL> OneItem_ULs;
-//ItemsetToTWU OneItem_TWU;
-//vector<ItemsetToValue> TopK;
-//
+
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
 		min_value = atoi(argv[2]);
@@ -101,11 +80,10 @@ int main(int argc, char *argv[]){
 		k = atoi(argv[3]);
 		QueryPerformanceFrequency(&fre);
 	}
-	QueryPerformanceCounter(&Start);
 	Scan_Database_First();
 	Scan_Database_Second();
-	Increasing_Min_Value();
-	UL empty;
+	Increasing_Min_Value(empty, OneItem_ULs);
+	QueryPerformanceCounter(&Start);
 	KHUI(empty, OneItem_ULs);
 	QueryPerformanceCounter(&End);
 	Output_Result();
@@ -147,7 +125,7 @@ void Scan_Database_First(){
 			}
 		}
 	}
-	//sort OneItem_TWU and save Available items
+	//sort OneItem_TWU with twu Ascending order and save Available items
 	sort(OneItem_TWU.begin(), OneItem_TWU.end(), Sort_OneItemTWU());
 
 	for (vector<pair<int, int>>::iterator it = OneItem_TWU.begin(); it != OneItem_TWU.end(); it++){
@@ -173,7 +151,7 @@ void Scan_Database_First(){
 
 void Scan_Database_Second(){
 	string line;
-	fstream fin;
+	ifstream fin;
 	fin.open(filename, ios::in);
 	int tid = 0;
 	while (getline(fin, line)){
@@ -221,8 +199,20 @@ void Scan_Database_Second(){
 	}
 }
 
-void Increasing_Min_Value(){
-	cout << "" << endl;
+void Increasing_Min_Value(UL P, vector<UL> P_ULs){
+	for (vector<UL>::reverse_iterator it = P_ULs.rbegin(); it != P_ULs.rend(); it++){
+		if (it->Sum_IU>=min_value){
+		
+		}
+		if (it->Sum_IU + it->Sum_RU >= min_value){
+			for (vector<UL>::reverse_iterator jt = it + 1; jt != P_ULs.rend(); jt++){
+				UL Pxy = Combination(P, *it, *jt);
+				if (Pxy.Sum_IU >= min_value){
+					Output_Itemset(Pxy.Itemset, Pxy.Sum_IU);
+				}
+			}
+		}
+	}
 }
 
 void KHUI(UL P, vector<UL> P_ULs){
@@ -234,6 +224,7 @@ void KHUI(UL P, vector<UL> P_ULs){
 		if (it->Sum_IU + it->Sum_RU >= min_value){
 			vector<UL> P_Extend_ULs;
 			for (vector<UL>::iterator jt = it + 1; jt != P_ULs.end(); jt++){
+				//if (IU_Matrix[make_pair(*it->Itemset.rbegin(),*it->Itemset.rbegin())]>=min_value)
 				P_Extend_ULs.push_back(Combination(P, *it, *jt));
 			}
 			KHUI(*it, P_Extend_ULs);
@@ -291,6 +282,7 @@ void Output_Result(){
 	file.open("Result.txt", ios::app);     
 	total_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
 	file<<filename<<" " << min_value <<" "<< fixed << setprecision(5) << hui_count <<" "<< total_time <<endl;
+	//Write FileName, Min_value, Found_HUI, Total_Time
 	file.close();
 }
 
@@ -300,7 +292,7 @@ void Output_Itemset(vector<int> I, int IU){
 	for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
 		file << *it <<"\t";
 	}
-	file << "Item Utility = " << IU;
+	file << ":" << IU;
 	file << endl;
 	file.close();
 }
