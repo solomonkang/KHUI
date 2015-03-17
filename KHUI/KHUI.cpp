@@ -245,10 +245,6 @@ UL Combination(UL& P, UL& Px, UL& Py){
 	UL Pxy;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
-	//for (vector<int>::iterator it = Pxy.Itemset.begin(); it != Pxy.Itemset.end(); it++){
-	//	cout << *it <<"\t";
-	//}
-	//cout << endl;
 	vector<Element>::iterator Last_Y_Pos = Py.Elements.begin();
 	vector<Element>::iterator Last_Z_Pos = P.Elements.begin();
 	for (vector<Element>::iterator x = Px.Elements.begin(); x != Px.Elements.end(); x++){
@@ -292,13 +288,13 @@ void Output_Result(){
 	file.open("Result.txt", ios::app);
 	total_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
 	file << filename << " " << min_value << " " << fixed << setprecision(5) << k << " " << total_time << endl;
-	for (auto it = TopK.begin(); it != TopK.end(); it++){
-		for (auto jt = it->first.begin(); jt != it->first.end(); jt++)
-		{
-			file << *jt << "\t";
-		}
-		file<<":"<<it->second<<endl;
-	}
+	//for (auto it = TopK.begin(); it != TopK.end(); it++){
+	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++)
+	//	{
+	//		file << *jt << "\t";
+	//	}
+	//	file<<":"<<it->second<<endl;
+	//}
 	//Write FileName, Min_value, Found_HUI, Total_Time
 	file.close();
 }
