@@ -6,16 +6,16 @@ using namespace std;
 class Element{
 public:
 	int tid;
-	int iu;
-	int ru;
+	float iu;
+	float ru;
 };
 
 
 class UL {
 public:
 	vector<int> Itemset; //Item name
-	int Sum_IU; // Sum of Utility
-	int Sum_RU; // Sum of Remaining Utility
+	float Sum_IU; // Sum of Utility
+	float Sum_RU; // Sum of Remaining Utility
 	vector<Element> Elements; // vector of <Element>
 	UL() : Sum_IU(0), Sum_RU(0){ //Initialize value of Sum_IU and Sum_RU
 	}
