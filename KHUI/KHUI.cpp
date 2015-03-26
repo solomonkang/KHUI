@@ -74,6 +74,7 @@ unsigned int k;
 char *filename = "";
 set<int> A_Items;
 
+map<set<int>, float> TwoItem_IU;
 map<int, float> OneItem_TWU;
 map<int, float> OneItem_Utility;
 
@@ -83,8 +84,7 @@ LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
 double times_1,times_2,times_3;
 UL empty;
 vector<pair<set<int>, float>> TopK;
-
-
+vector<pair<set<int>, float>> Two_Item_TopK;
 
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
@@ -206,15 +206,15 @@ void Scan_Database(){
 		sort(R_Trans.begin(), R_Trans.end(), Revise_Trans()); //sort R_Trans;
 		for (auto i = R_Trans.begin(); i != R_Trans.end(); i++){
 			RU -= i->first.second;
-			vector<UL>::iterator vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(i->first.first));
+			auto vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(i->first.first));
 			Element E;
 			E.tid = tid;
 			E.iu = i->first.second;
 			E.ru = RU;
 			vt->Add_Element(E);
+			}
 		}
 	}
-}
 
 void KHUI(UL P, int pos){
 	pos += 1;
@@ -243,9 +243,9 @@ UL Combination(UL& Px, UL& Py){
 	UL Pxy;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
-	vector<Element>::iterator Last_Y_Pos = Py.Elements.begin();
-	for (vector<Element>::iterator x = Px.Elements.begin(); x != Px.Elements.end(); x++){
-		for (vector<Element>::iterator y = Last_Y_Pos; y != Py.Elements.end(); y++){
+	auto Last_Y_Pos = Py.Elements.begin();
+	for (auto x = Px.Elements.begin(); x != Px.Elements.end(); x++){
+		for (auto y = Last_Y_Pos; y != Py.Elements.end(); y++){
 			if (x->tid == y->tid){
 				Last_Y_Pos = y + 1;
 				Element E = *y;
@@ -266,13 +266,12 @@ void Output_Result(){
 	fstream file;
 	file.open("Result.txt", ios::app);
 	file << filename << " " << min_value << " " << fixed << setprecision(5) << k << " " << times_1 <<" "<<times_2<<" "<<times_3<<endl;
-	//for (auto it = TopK.begin(); it != TopK.end(); it++){
-	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++)
-	//	{
-	//		file << *jt << "\t";
-	//	}
-	//	file<<":"<<it->second<<endl;
-	//}
+	for (auto it = TopK.begin(); it != TopK.end(); it++){
+		for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
+			file << *jt << "\t";
+		}
+		file<<":"<<it->second<<endl;
+	}
 	//Write FileName, Min_value, Found_HUI, Total_Time
 	file.close();
 }
