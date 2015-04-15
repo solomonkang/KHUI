@@ -59,8 +59,7 @@ typedef struct TopK_Sort {
 } TopK_Sort;
 
 void Scan_Database();
-void KHUI(UL P, int pos);
-//void KHUI(UL P, vector<UL> P_ULs);
+void KHUI(UL& P, int pos);
 void Output_Result();
 void Output_Itemset(vector<int> I, float IU);
 void Update_TopK(set<int> Itemset, float IU);
@@ -74,7 +73,7 @@ unsigned int k;
 char *filename = "";
 set<int> A_Items;
 
-map<set<int>, float> TwoItem_IU;
+map<pair<int,int>, float> TwoItem_IU;
 map<int, float> OneItem_TWU;
 map<int, float> OneItem_Utility;
 
@@ -105,7 +104,6 @@ int main(int argc, char *argv[]){
 	}
 	QueryPerformanceCounter(&P3End);
 	times_3 = ((double)P3End.QuadPart - (double)P3Start.QuadPart) / fre.QuadPart;
-	//KHUI(empty, OneItem_ULs);
 	Output_Result();
 	return 0;
 }
@@ -121,7 +119,7 @@ void Scan_Database(){
 	int item_count, item;
 	float utility, tu;
 	while (fin.good()){
-		vector<int> Itemset;
+		vector<pair<int, float>> iup; //ItemUtilityPair
 		fin >> line;
 		tid = stoi(line);
 		fin >> line;
@@ -133,11 +131,9 @@ void Scan_Database(){
 			item = stoi(line);
 			fin >> line;
 			utility = stof(line);
-			Itemset.push_back(item);
+			iup.push_back(make_pair(item,utility));
 			OneItem_Utility[item] += utility;
-		}
-		for (auto it = Itemset.begin(); it != Itemset.end(); it++){
-			OneItem_TWU[*it] += tu;
+			OneItem_TWU[item] += tu;
 		}
 	}
 	for (auto it = OneItem_Utility.begin(); it != OneItem_Utility.end();it++){
@@ -148,7 +144,6 @@ void Scan_Database(){
 			Update_TopK(Itemset,it->second);
 		}
 	}
-
 
 	vector<pair<int, float>> V_OneItem_TWU(OneItem_TWU.begin(), OneItem_TWU.end()); //Create a vector point to OneItem_TWU.map;
 
@@ -182,9 +177,9 @@ void Scan_Database(){
 	QueryPerformanceCounter(&P2Start);
 	cout << "Current Min_Value" << min_value << endl;
 	cout << "Phase 2: Scan database Again" << endl;
+
 	fin.open(filename, ios::in);
 	while (fin.good()){
-		vector<int> Itemset;
 		fin >> line;
 		tid = stoi(line);
 		fin >> line;
@@ -212,11 +207,23 @@ void Scan_Database(){
 			E.iu = i->first.second;
 			E.ru = RU;
 			vt->Add_Element(E);
+			for (auto j = i + 1; j != R_Trans.end(); j++){
+				TwoItem_IU[make_pair(i->first.first, j->first.first)] += i->first.second + j->first.second;
 			}
 		}
 	}
+	for (auto a = TwoItem_IU.begin(); a != TwoItem_IU.end(); a++){
+		if (a->second > min_value){
+			set<int> Itemset;
+			Itemset.insert(a->first.first);
+			Itemset.insert(a->first.second);
+			Update_TopK(Itemset,a->second);
+		}
+	}
+	cout << "Current Min_Value" << min_value << endl;
+}
 
-void KHUI(UL P, int pos){
+void KHUI(UL& P, int pos){
 	pos += 1;
 	if (P.Sum_IU >= min_value){
 		set<int> Itemset;
@@ -226,7 +233,6 @@ void KHUI(UL P, int pos){
 		Update_TopK(Itemset, P.Sum_IU);
 	}
 	if (P.Sum_IU + P.Sum_RU >= min_value){
-
 		for (auto a = OneItem_ULs.begin() + pos; a != OneItem_ULs.end(); a++){
 			if (P.Sum_IU + a->Sum_IU + a->Sum_RU < min_value){
 				continue;
