@@ -234,13 +234,21 @@ void KHUI(UL& P, int pos){
 	}
 	if (P.Sum_IU + P.Sum_RU >= min_value){
 		for (auto a = OneItem_ULs.begin() + pos; a != OneItem_ULs.end(); a++){
-			if (P.Sum_IU + a->Sum_IU + a->Sum_RU < min_value){
+			if (TwoItem_IU[make_pair(*P.Itemset.rbegin(), *a->Itemset.begin())] == 0){
 				continue;
 			}
-			else {
-				pos = a - OneItem_ULs.begin();
-				KHUI(Combination(P, *a), pos);
+			if (P.Itemset.size() == 1){
+				if (TwoItem_IU[make_pair(*P.Itemset.rbegin(), *a->Itemset.begin())] + a->Sum_RU < min_value){
+					continue;
+				}
 			}
+			else{
+				if (P.Sum_IU + min(a->Sum_IU, a->Mau*min(a->Elements.size(),P.Elements.size())) + a->Sum_RU < min_value){
+					continue;
+				}
+			}
+			pos = a - OneItem_ULs.begin();
+			KHUI(Combination(P, *a), pos);
 		}
 	}
 }
@@ -270,28 +278,20 @@ UL Combination(UL& Px, UL& Py){
 
 void Output_Result(){
 	fstream file;
-	file.open("Result.txt", ios::app);
-	file << filename << " " << min_value << " " << fixed << setprecision(5) << k << " " << times_1 <<" "<<times_2<<" "<<times_3<<endl;
-	for (auto it = TopK.begin(); it != TopK.end(); it++){
-		for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
-			file << *jt << "\t";
-		}
-		file<<":"<<it->second<<endl;
-	}
-	//Write FileName, Min_value, Found_HUI, Total_Time
+	string filename2 = filename;
+	filename2 = filename2.substr(0,5);
+	filename2+="_Results.txt";
+	file.open(filename2, ios::app);
+	file << filename << " " << min_value << " " << fixed << setprecision(5) << k << " " << times_1 <<" "<<times_2<<" "<<times_3 <<" "<<times_1+times_2+times_3<<endl;
+	//for (auto it = TopK.begin(); it != TopK.end(); it++){
+	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
+	//		file << *jt << "\t";
+	//	}
+	//	file<<":"<<it->second<<endl;
+	//}
 	file.close();
 }
 
-//void Output_Itemset(vector<int> I, float IU){
-//	fstream file;
-//	file.open("Result.txt", ios::app);
-//	for (vector<int>::iterator it = I.begin(); it != I.end(); it++){
-//		file << *it << "\t";
-//	}
-//	file << ":" << IU;
-//	file << endl;
-//	file.close();
-//}
 void Update_TopK(set<int> Itemset, float IU){
 	auto it=find_if(TopK.begin(), TopK.end(), Check_TopK(Itemset));
 	if (it == TopK.end()){
