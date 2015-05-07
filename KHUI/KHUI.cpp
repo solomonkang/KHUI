@@ -1,17 +1,11 @@
 #include "stdafx.h"
 #include "utilitylist.h"
 #include "omp.h"
+#include <Psapi.h>
 
 using namespace std;
 
-typedef struct Find_OneItemTWU{
-	Find_OneItemTWU(int val) : val_(val) {}
-	bool operator()(const pair<int, float>& elem) {
-		return  elem.first == val_;
-	}
-private:
-	int val_;
-} Find_OneItemTWU;
+PROCESS_MEMORY_COUNTERS pmc;
 
 typedef struct Sort_OneItemTWU {
 	bool operator()(pair<int, float> &left, pair<int, float> &right) {
@@ -66,12 +60,11 @@ void Update_TopK(set<int> Itemset, float IU);
 UL Combination(UL& Px, UL& Py);
 
 //Global Variables
-float min_value = 0;
-int tid = 0, hui_count = 0;
+float min_value = 0,p1_threshold,p2_threshold;
+int tid = 0, MAU_Prune_count = 0;
 int prune_count = 0;
 unsigned int k;
 char *filename = "";
-set<int> A_Items;
 
 map<pair<int,int>, float> TwoItem_IU;
 map<int, float> OneItem_TWU;
@@ -79,11 +72,9 @@ map<int, float> OneItem_Utility;
 
 vector<UL> OneItem_ULs;
 map<int, int> R_Map;
-LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre;
-double times_1,times_2,times_3;
-UL empty;
+LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre; // exe time computation
+double P1_time,P2_time,P3_time; // record execution time
 vector<pair<set<int>, float>> TopK;
-vector<pair<set<int>, float>> Two_Item_TopK;
 
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
@@ -94,16 +85,16 @@ int main(int argc, char *argv[]){
 	}
 	Scan_Database();
 	QueryPerformanceCounter(&P2End);
-	times_2 = ((double)P2End.QuadPart - (double)P2Start.QuadPart) / fre.QuadPart;
+	P2_time = ((double)P2End.QuadPart - (double)P2Start.QuadPart) / fre.QuadPart;
 
-	cout << "Phase 3: Mining Top-K High Utility Itemsets" << endl;
+	cout << "Phase 3: KHUI Verifying" << endl;
 	QueryPerformanceCounter(&P3Start);
 	for (auto a = OneItem_ULs.begin(); a != OneItem_ULs.end(); a++){
 		int pos = a - OneItem_ULs.begin();
 		KHUI(*a, pos);
 	}
 	QueryPerformanceCounter(&P3End);
-	times_3 = ((double)P3End.QuadPart - (double)P3Start.QuadPart) / fre.QuadPart;
+	P3_time = ((double)P3End.QuadPart - (double)P3Start.QuadPart) / fre.QuadPart;
 	Output_Result();
 	return 0;
 }
@@ -144,7 +135,10 @@ void Scan_Database(){
 			Update_TopK(Itemset,it->second);
 		}
 	}
-
+	set<int> pkhui_one_item;
+	for (auto a = TopK.begin(); a != TopK.end();a++){
+		pkhui_one_item.insert(*a->first.begin());
+	}
 	vector<pair<int, float>> V_OneItem_TWU(OneItem_TWU.begin(), OneItem_TWU.end()); //Create a vector point to OneItem_TWU.map;
 
 	sort(V_OneItem_TWU.begin(), V_OneItem_TWU.end(), Sort_OneItemTWU());
@@ -154,7 +148,6 @@ void Scan_Database(){
 			UL TempUL;
 			TempUL.Itemset.push_back(it->first);
 			OneItem_ULs.push_back(TempUL);
-			A_Items.insert(it->first);
 		}
 		else{
 			V_OneItem_TWU.erase(it);
@@ -170,12 +163,10 @@ void Scan_Database(){
 
 	fin.close();
 	QueryPerformanceCounter(&End);
-	times_1 = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
-
-
+	P1_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
+	p1_threshold = min_value;
 
 	QueryPerformanceCounter(&P2Start);
-	cout << "Current Min_Value" << min_value << endl;
 	cout << "Phase 2: Scan database Again" << endl;
 
 	fin.open(filename, ios::in);
@@ -199,16 +190,23 @@ void Scan_Database(){
 			}
 		}
 		sort(R_Trans.begin(), R_Trans.end(), Revise_Trans()); //sort R_Trans;
+		
 		for (auto i = R_Trans.begin(); i != R_Trans.end(); i++){
 			RU -= i->first.second;
-			auto vt = find_if(OneItem_ULs.begin(), OneItem_ULs.end(), Find_UL(i->first.first));
+			auto k = OneItem_ULs.begin() + R_Map[i->first.first];
 			Element E;
 			E.tid = tid;
 			E.iu = i->first.second;
 			E.ru = RU;
-			vt->Add_Element(E);
+			k->Add_Element(E);
+			auto x = pkhui_one_item.find(i->first.first);
+			if (x != pkhui_one_item.end()){
+				for (auto j = i + 1; j != R_Trans.end(); j++){
+					TwoItem_IU[make_pair(i->first.first, j->first.first)] += i->first.second + j->first.second;
+				}
+			}
 			for (auto j = i + 1; j != R_Trans.end(); j++){
-				TwoItem_IU[make_pair(i->first.first, j->first.first)] += i->first.second + j->first.second;
+				k->TWU_Map[j->first.first] += tu;
 			}
 		}
 	}
@@ -220,7 +218,7 @@ void Scan_Database(){
 			Update_TopK(Itemset,a->second);
 		}
 	}
-	cout << "Current Min_Value" << min_value << endl;
+	p2_threshold = min_value;
 }
 
 void KHUI(UL& P, int pos){
@@ -234,27 +232,22 @@ void KHUI(UL& P, int pos){
 	}
 	if (P.Sum_IU + P.Sum_RU >= min_value){
 		for (auto a = OneItem_ULs.begin() + pos; a != OneItem_ULs.end(); a++){
-			if (TwoItem_IU[make_pair(*P.Itemset.rbegin(), *a->Itemset.begin())] == 0){
+			if (P.TWU_Map[*a->Itemset.begin()] < min_value){
 				continue;
 			}
-			if (P.Itemset.size() == 1){
-				if (TwoItem_IU[make_pair(*P.Itemset.rbegin(), *a->Itemset.begin())] + a->Sum_RU < min_value){
-					continue;
-				}
-			}
-			else{
-				if (P.Sum_IU + min(a->Sum_IU, a->Mau*min(a->Elements.size(),P.Elements.size())) + a->Sum_RU < min_value){
-					continue;
-				}
+			if (P.Sum_IU + min(a->Sum_IU, a->Mau*min(a->Elements.size(), P.Elements.size())) + a->Sum_RU < min_value){
+				continue;
 			}
 			pos = a - OneItem_ULs.begin();
 			KHUI(Combination(P, *a), pos);
 		}
 	}
+	P.TWU_Map.clear();
 }
 
 UL Combination(UL& Px, UL& Py){
 	UL Pxy;
+	Pxy.TWU_Map = Py.TWU_Map;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
 	auto Last_Y_Pos = Py.Elements.begin();
@@ -282,7 +275,7 @@ void Output_Result(){
 	filename2 = filename2.substr(0,5);
 	filename2+="_Results.txt";
 	file.open(filename2, ios::app);
-	file << filename << " " << min_value << " " << fixed << setprecision(5) << k << " " << times_1 <<" "<<times_2<<" "<<times_3 <<" "<<times_1+times_2+times_3<<endl;
+	file << filename << " "<<p1_threshold <<" "<<p2_threshold<<" "<< min_value << " " << fixed << setprecision(5) << k << " " << P1_time <<" "<<P2_time<<" "<<P3_time <<" "<<P1_time+P2_time+P3_time<<endl;
 	//for (auto it = TopK.begin(); it != TopK.end(); it++){
 	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
 	//		file << *jt << "\t";

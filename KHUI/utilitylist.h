@@ -17,10 +17,8 @@ public:
 	float Sum_IU; // Sum of Utility
 	float Sum_RU; // Sum of Remaining Utility
 	float Mau;
-	map < int, float> support;
-	map < int, float> utility_matrix;
-	map < int, float> twu_matrix;
 	vector<Element> Elements; // vector of <Element>
+	map<int, float> TWU_Map;
 	UL() : Sum_IU(0), Sum_RU(0), Mau(0){ //Initialize value of Sum_IU and Sum_RU
 	}
 	void Add_Element(const Element& E){ //Add_Element sub function
