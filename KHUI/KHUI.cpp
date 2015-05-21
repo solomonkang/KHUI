@@ -5,8 +5,6 @@
 
 using namespace std;
 
-PROCESS_MEMORY_COUNTERS pmc;
-
 typedef struct Sort_OneItemTWU {
 	bool operator()(pair<int, float> &left, pair<int, float> &right) {
 		return left.second <right.second;
@@ -63,6 +61,7 @@ UL Combination(UL& Px, UL& Py);
 float min_value = 0,p1_threshold,p2_threshold;
 int tid = 0, MAU_Prune_count = 0;
 int prune_count = 0;
+int candidate =0;
 unsigned int k;
 char *filename = "";
 
@@ -75,6 +74,7 @@ map<int, int> R_Map;
 LARGE_INTEGER Start, End, P2Start, P2End, P3Start, P3End, fre; // exe time computation
 double P1_time,P2_time,P3_time; // record execution time
 vector<pair<set<int>, float>> TopK;
+SIZE_T physMemUsedByMe;
 
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
@@ -84,6 +84,12 @@ int main(int argc, char *argv[]){
 		QueryPerformanceFrequency(&fre);
 	}
 	Scan_Database();
+	QueryPerformanceCounter(&P2End);
+	P2_time = ((double)P2End.QuadPart - (double)P2Start.QuadPart) / fre.QuadPart;
+
+	PROCESS_MEMORY_COUNTERS pmc;
+	GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc));
+	physMemUsedByMe = pmc.WorkingSetSize;
 	QueryPerformanceCounter(&P2End);
 	P2_time = ((double)P2End.QuadPart - (double)P2Start.QuadPart) / fre.QuadPart;
 
@@ -247,6 +253,7 @@ void KHUI(UL& P, int pos){
 
 UL Combination(UL& Px, UL& Py){
 	UL Pxy;
+	candidate++;
 	Pxy.TWU_Map = Py.TWU_Map;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
@@ -275,7 +282,7 @@ void Output_Result(){
 	filename2 = filename2.substr(0,5);
 	filename2+="_Results.txt";
 	file.open(filename2, ios::app);
-	file << filename << " "<<p1_threshold <<" "<<p2_threshold<<" "<< min_value << " " << fixed << setprecision(5) << k << " " << P1_time <<" "<<P2_time<<" "<<P3_time <<" "<<P1_time+P2_time+P3_time<<endl;
+	file << filename << " "<<p1_threshold <<" "<<p2_threshold<<" "<< min_value << " " << fixed << setprecision(5) << k << " " << P1_time <<" "<<P2_time<<" "<<P3_time <<" "<<P1_time+P2_time+P3_time<< " "<< physMemUsedByMe <<" " <<candidate<<endl;
 	//for (auto it = TopK.begin(); it != TopK.end(); it++){
 	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
 	//		file << *jt << "\t";
