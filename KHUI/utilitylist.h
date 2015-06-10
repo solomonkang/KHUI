@@ -18,7 +18,7 @@ public:
 	float Sum_RU; // Sum of Remaining Utility
 	float Mau;
 	vector<Element> Elements; // vector of <Element>
-	map<int, float> TWU_Map;
+	vector<float> CTWU;
 	UL() : Sum_IU(0), Sum_RU(0), Mau(0){ //Initialize value of Sum_IU and Sum_RU
 	}
 	void Add_Element(const Element& E){ //Add_Element sub function

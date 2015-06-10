@@ -58,7 +58,7 @@ void Update_TopK(set<int> Itemset, float IU);
 UL Combination(UL& Px, UL& Py);
 
 //Global Variables
-float min_value = 0,p1_threshold,p2_threshold;
+float cm_utility = 0,p1_threshold,p2_threshold;
 int tid = 0, MAU_Prune_count = 0;
 int prune_count = 0;
 int candidate =0;
@@ -78,7 +78,7 @@ SIZE_T physMemUsedByMe;
 
 int main(int argc, char *argv[]){
 	if (argv[1] && argv[2] && argv[3]){
-		min_value = atof(argv[2]);
+		cm_utility = atof(argv[2]);
 		filename = argv[1];
 		k = atoi(argv[3]);
 		QueryPerformanceFrequency(&fre);
@@ -134,7 +134,7 @@ void Scan_Database(){
 		}
 	}
 	for (auto it = OneItem_Utility.begin(); it != OneItem_Utility.end();it++){
-		if (it->second >= min_value||TopK.size()<k)
+		if (it->second >= cm_utility||TopK.size()<k)
 		{
 			set<int> Itemset;
 			Itemset.insert(it->first);
@@ -148,10 +148,11 @@ void Scan_Database(){
 	vector<pair<int, float>> V_OneItem_TWU(OneItem_TWU.begin(), OneItem_TWU.end()); //Create a vector point to OneItem_TWU.map;
 
 	sort(V_OneItem_TWU.begin(), V_OneItem_TWU.end(), Sort_OneItemTWU());
-	
+
 	for (auto it = V_OneItem_TWU.begin(); it != V_OneItem_TWU.end(); it++){
-		if (it->second >= min_value){
+		if (it->second >= cm_utility){
 			UL TempUL;
+			TempUL.CTWU.resize(V_OneItem_TWU.end()-it);
 			TempUL.Itemset.push_back(it->first);
 			OneItem_ULs.push_back(TempUL);
 		}
@@ -170,7 +171,7 @@ void Scan_Database(){
 	fin.close();
 	QueryPerformanceCounter(&End);
 	P1_time = ((double)End.QuadPart - (double)Start.QuadPart) / fre.QuadPart;
-	p1_threshold = min_value;
+	p1_threshold = cm_utility;
 
 	QueryPerformanceCounter(&P2Start);
 	cout << "Phase 2: Scan database Again" << endl;
@@ -190,7 +191,7 @@ void Scan_Database(){
 			item = stoi(line);
 			fin >> line;
 			utility = stof(line);
-			if (OneItem_TWU[item] >= min_value){
+			if (OneItem_TWU[item] >= cm_utility){
 				R_Trans.push_back(make_pair(make_pair(item, utility), R_Map[item]));
 				RU += utility;
 			}
@@ -206,55 +207,53 @@ void Scan_Database(){
 			E.ru = RU;
 			k->Add_Element(E);
 			auto x = pkhui_one_item.find(i->first.first);
-			if (x != pkhui_one_item.end()){
-				for (auto j = i + 1; j != R_Trans.end(); j++){
+			for (auto j = i + 1; j != R_Trans.end(); j++){
+				if (x != pkhui_one_item.end()){
 					TwoItem_IU[make_pair(i->first.first, j->first.first)] += i->first.second + j->first.second;
 				}
-			}
-			for (auto j = i + 1; j != R_Trans.end(); j++){
-				k->TWU_Map[j->first.first] += tu;
+				k->CTWU[R_Map[j->first.first]-R_Map[i->first.first]-1] += tu;
 			}
 		}
 	}
 	for (auto a = TwoItem_IU.begin(); a != TwoItem_IU.end(); a++){
-		if (a->second > min_value){
+		if (a->second > cm_utility){
 			set<int> Itemset;
 			Itemset.insert(a->first.first);
 			Itemset.insert(a->first.second);
 			Update_TopK(Itemset,a->second);
 		}
 	}
-	p2_threshold = min_value;
+	p2_threshold = cm_utility;
 }
 
 void KHUI(UL& P, int pos){
 	pos += 1;
-	if (P.Sum_IU >= min_value){
+	if (P.Sum_IU >= cm_utility){
 		set<int> Itemset;
 		for (auto i = P.Itemset.begin(); i != P.Itemset.end(); i++){
 			Itemset.insert(*i);
 		}
 		Update_TopK(Itemset, P.Sum_IU);
 	}
-	if (P.Sum_IU + P.Sum_RU >= min_value){
+	if (P.Sum_IU + P.Sum_RU >= cm_utility){
 		for (auto a = OneItem_ULs.begin() + pos; a != OneItem_ULs.end(); a++){
-			if (P.TWU_Map[*a->Itemset.begin()] < min_value){
+			if (P.CTWU[R_Map[*a->Itemset.begin()]-R_Map[*P.Itemset.rbegin()]-1] < cm_utility){
 				continue;
 			}
-			if (P.Sum_IU + min(a->Sum_IU, a->Mau*min(a->Elements.size(), P.Elements.size())) + a->Sum_RU < min_value){
+			if (P.Sum_IU + min(a->Sum_IU, a->Mau*min(a->Elements.size(), P.Elements.size())) + a->Sum_RU < cm_utility){
 				continue;
 			}
 			pos = a - OneItem_ULs.begin();
 			KHUI(Combination(P, *a), pos);
 		}
 	}
-	P.TWU_Map.clear();
+	P.CTWU.clear();
 }
 
 UL Combination(UL& Px, UL& Py){
 	UL Pxy;
 	candidate++;
-	Pxy.TWU_Map = Py.TWU_Map;
+	Pxy.CTWU = Py.CTWU;
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
 	auto Last_Y_Pos = Py.Elements.begin();
@@ -282,7 +281,7 @@ void Output_Result(){
 	filename2 = filename2.substr(0,5);
 	filename2+="_Results.txt";
 	file.open(filename2, ios::app);
-	file << filename << " "<<p1_threshold <<" "<<p2_threshold<<" "<< min_value << " " << fixed << setprecision(5) << k << " " << P1_time <<" "<<P2_time<<" "<<P3_time <<" "<<P1_time+P2_time+P3_time<< " "<< physMemUsedByMe <<" " <<candidate<<endl;
+	file << filename << " "<<p1_threshold <<" "<<p2_threshold<<" "<< cm_utility << " " << fixed << setprecision(5) << k << " " << P1_time <<" "<<P2_time<<" "<<P3_time <<" "<<P1_time+P2_time+P3_time<< " "<< physMemUsedByMe <<" " <<candidate<<endl;
 	//for (auto it = TopK.begin(); it != TopK.end(); it++){
 	//	for (auto jt = it->first.begin(); jt != it->first.end(); jt++){
 	//		file << *jt << "\t";
@@ -301,5 +300,5 @@ void Update_TopK(set<int> Itemset, float IU){
 	if (TopK.size() > k){
 		TopK.erase(TopK.begin());
 	}
-	min_value = TopK.begin()->second;
+	cm_utility = TopK.begin()->second;
 }
