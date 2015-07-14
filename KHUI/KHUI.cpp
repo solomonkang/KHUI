@@ -254,6 +254,11 @@ UL Combination(UL& Px, UL& Py){
 	UL Pxy;
 	candidate++;
 	Pxy.CTWU = Py.CTWU;
+	for (int i = 0; i != Pxy.CTWU.size(); i++){
+		if (Px.CTWU[R_Map[*Py.Itemset.begin()] - R_Map[*Px.Itemset.rbegin()]+i] < Pxy.CTWU[i]){
+			Pxy.CTWU[i] = Px.CTWU[R_Map[*Py.Itemset.begin()] - R_Map[*Px.Itemset.rbegin()] + i];
+		}
+	}
 	Pxy.Itemset = Px.Itemset;
 	Pxy.Itemset.push_back(*Py.Itemset.rbegin());
 	auto Last_Y_Pos = Py.Elements.begin();
